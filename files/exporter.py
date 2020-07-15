@@ -4,7 +4,7 @@
 import argparse
 import http.server
 import os
-
+import re
 
 import requests
 
@@ -19,6 +19,8 @@ def fetch_data(api_key):
         'format': 'json',
         'response_times': 1,
         'response_times_limit': 1,
+        'all_time_uptime_ratio': 1,
+        'custom_uptime_ratios': '1-7-30',
     }
     req = requests.post(
         'https://api.uptimerobot.com/v2/getMonitors',
@@ -37,6 +39,33 @@ def format_prometheus(data):
            value = 0
         else:
            value = 3
+
+        m = re.search(r'^([\d\.]+)-([\d\.]+)-([\d\.]+)$', item.get('custom_uptime_ratio'))
+
+        uptime_1_day = m.group(1)
+        uptime_7_days = m.group(2)
+        uptime_30_days = m.group(3)
+
+        result += 'uptimerobot_uptime_1_day{{name="{}"}} {}\n'.format(
+            item.get('friendly_name'),
+            uptime_1_day,
+        )
+
+        result += 'uptimerobot_uptime_7_days{{name="{}"}} {}\n'.format(
+            item.get('friendly_name'),
+            uptime_7_days,
+        )
+
+        result += 'uptimerobot_uptime_30_days{{name="{}"}} {}\n'.format(
+            item.get('friendly_name'),
+            uptime_30_days,
+        )
+
+        result += 'uptimerobot_all_time_uptime_ratio{{name="{}"}} {}\n'.format(
+            item.get('friendly_name'),
+            item.get('all_time_uptime_ratio'),
+        )
+
         result += 'uptimerobot_status{{c1_name="{}",c2_url="{}",c3_type="{}",c4_sub_type="{}",c5_keyword_type="{}",c6_keyword_value="{}",c7_http_username="{}",c8_port="{}",c9_interval="{}"}} {}\n'.format(
             item.get('friendly_name'),
             item.get('url'),
